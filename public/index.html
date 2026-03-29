@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mini Dólar Pro</title>
+  <style>
+  body { font-family: Arial; background:#0f172a; color:#fff; padding:20px; }
+
+  h2 { margin-bottom:10px; }
+
+  .container { max-width:900px; margin:auto; }
+
+  .row + .row {
+  margin-top: 10px;
+}
+  .row {
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:10px; /* 👈 resolve o espaço vertical */
+}
+
+  .small { flex:1; min-width:120px; }
+  .medium { flex:2; min-width:200px; }
+  .full { width:100%; }
+
+  input, textarea, select, button {
+    padding:10px;
+    border-radius:8px;
+    border:none;
+    font-size:14px;
+  }
+
+  input, textarea, select {
+    background:#1e293b;
+    color:#fff;
+    width: auto;
+    flex: 1;
+
+  }
+
+  textarea { resize:none; height:60px; }
+
+  button {
+    background:#22c55e;
+    cursor:pointer;
+    font-weight:bold;
+    width: auto;
+    padding: 10px 20px;
+  }
+
+  .card {
+    background:#020617;
+    padding:12px;
+    margin-top:10px;
+    border-radius:10px;
+  }
+
+  .gain { color:#22c55e; }
+  .loss { color:#ef4444; }
+
+  .btn {
+    margin-top:5px;
+    background:#334155;
+  }
+
+  .resumo {
+    display:flex;
+    gap:20px;
+    margin-top:10px;
+  }
+
+  .resumo div {
+    background:#020617;
+    padding:10px;
+    border-radius:8px;
+  }
+
+  .error {
+  outline: 2px solid #ef4444;
+}
+
+.error::placeholder {
+  color: #ef4444;
+}
+
+.risk-info {
+  background: #020617;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #cbd5f5;
+  margin-top: 10px;
+  line-height: 1.5;
+  border-left: 4px solid #22c55e;
+}
+
+.container {
+  max-width: 1000px;
+  margin: auto;
+}
+
+.topo {
+  background:#020617;
+  padding:15px;
+  border-radius:12px;
+}
+
+.meio {
+  margin-top:15px;
+}
+
+.baixo {
+  margin-top:15px;
+}
+
+
+
+
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h2>Mini Dólar (WDO)</h2>
+
+<h3>Gerenciamento de Risco</h3>
+
+<div class="row">
+<input id="saldo" placeholder="Tamanho da Banca em R$">
+<input id="risco" placeholder="% Arriscada por trade">
+<input id="stop" placeholder="Pts de STOP">
+
+<button onclick="calcular()">Calcular Contratos</button>
+
+<p>Contratos ideais: <span id="contratosCalc"></span></p>
+</div>
+<p class="risk-info">
+  ⚠️ Gerenciamento mínimo recomendado:<br>
+  • R$ <b>5000</b> por contrato<br>
+  • Risco por trade: <b>1%</b><br>
+  • Stop: <b>5 pontos</b><br>
+  • Máx: <b>3 losses por dia</b><br>
+  • Drawdown: <b>até 15%</b><br>
+</p>
+
+<br>
+<h3>Registro de Trades</h3>
+
+
+<div class="row">
+  <input id="entry" placeholder="Entrada" maxlength="8">
+  <input id="exit" placeholder="Saída" maxlength="8">
+  <input id="contracts" type="number" min="1" placeholder="Contratos">
+  
+  <select class="small" id="side">
+    <option value="buy">🟢 Compra</option>
+    <option value="sell">🔴 Venda</option>
+  </select>
+
+  <select class="small" id="tag">
+    <option value="">Sem tag</option>
+    <option value="setup">Setup</option>
+    <option value="emocional">Emocional</option>
+  </select>
+</div>
+
+<textarea class="full" id="description" placeholder="Motivo da entrada..."></textarea>
+
+<button onclick="salvar()">Salvar Trade</button>
+
+<h3>Resumo</h3>
+<div class="resumo">
+  <div>Dia<br><b id="dia">0</b></div>
+  <div>Semana<br><b id="semana">0</b></div>
+  <div>Mês<br><b id="mes">0</b></div>
+</div>
+
+
+<h3>Trades</h3>
+<div id="lista"></div>
+
+<script>
+const API = '/trades';
+let editId = null;
+
+function calcular(){
+  const saldoEl = document.getElementById('saldo');
+  const riscoEl = document.getElementById('risco');
+  const stopEl = document.getElementById('stop');
+  const contratosEl = document.getElementById('contratosCalc');
+
+  const saldo = Number(saldoEl.value);
+  const risco = Number(riscoEl.value) / 100;
+  const stop = Number(stopEl.value);
+
+  if(!saldo || !risco || !stop){
+    contratosEl.innerText = 'Preencha tudo';
+    return;
+  }
+
+  const riscoReais = saldo * risco;
+  const contratos = riscoReais / (stop * 10);
+
+  contratosEl.innerText = Math.floor(contratos);
+}
+
+function f(v){
+  return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2});
+}
+
+function parseBR(valor){
+  return Number(valor.replace(/\./g,'').replace(',','.'));
+}
+
+function formatInput(el){
+  let v = el.value.replace(/\D/g,'');
+
+  if(v === ''){
+    el.value = '';
+    return;
+  }
+
+  // garante pelo menos 3 dígitos (bug ,00)
+  while(v.length < 3) v = '0' + v;
+
+  // limita máximo de 6 dígitos + 2 decimais = 8 caracteres no formato x.xxx,xx
+  if(v.length > 8) v = v.slice(0, 8);
+
+  const inteiro = v.slice(0, -2);
+  const decimal = v.slice(-2);
+
+  const numero = Number(inteiro + '.' + decimal);
+
+  el.value = numero.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+entry.oninput = () => formatInput(entry);
+exit.oninput = () => formatInput(exit);
+
+function validarCampos(){
+  let ok = true;
+
+  const campos = [entry, exit, contracts, description, side];
+
+  campos.forEach(c=>{
+    if(!c.value || (c.value.trim && !c.value.trim())){
+      c.classList.add('error');
+      ok = false;
+    } else {
+      c.classList.remove('error');
+    }
+  });
+
+  if(parseBR(entry.value) === parseBR(exit.value)){
+    entry.classList.add('error');
+    exit.classList.add('error');
+    ok = false;
+  }
+
+  return ok;
+}
+
+// remove erro ao digitar
+[entry, exit, contracts, description].forEach(el=>{
+  el.addEventListener('input', ()=> el.classList.remove('error'));
+});
+side.addEventListener('change', ()=> side.classList.remove('error'));
+
+async function salvar(){
+
+  if(!validarCampos()) return;
+
+  const data = {
+    side: side.value,
+    asset:'WDO',
+    entry: parseBR(entry.value),
+    exit: parseBR(exit.value),
+
+    // 👇 AQUI está o upgrade
+    contracts: Math.max(1, Number(contracts.value || document.getElementById('contratosCalc').innerText || 1)),
+
+    description:description.value,
+    tag:tag.value
+  };
+
+  if(editId){
+    await fetch(API+'/'+editId,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+    editId = null;
+  } else {
+    await fetch(API,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+  }
+
+  carregar();
+}
+
+function formatDate(d){
+  const date = new Date(d);
+  return date.toLocaleString('pt-BR');
+}
+
+async function carregar(){
+  const res = await fetch(API);
+  const data = await res.json();
+
+  let dia=0,semana=0,mes=0;
+  const now = new Date();
+
+  lista.innerHTML = data.map(t=>{
+    const d = new Date(t.created_at);
+
+    if(d.toDateString() === now.toDateString()) dia += t.result;
+    if(d > new Date(now - 7*24*60*60*1000)) semana += t.result;
+    if(d.getMonth() === now.getMonth()) mes += t.result;
+
+    return `
+  <div class="card">
+    <div>
+      <b>${t.side === 'buy' ? '🟢 Compra' : '🔴 Venda'}</b>
+      ${f(t.entry)} → ${f(t.exit)}
+    </div>
+
+    <div>
+      ${t.contracts} contratos | ${f(t.points)} pts
+    </div>
+
+    <div class="${t.result>=0?'gain':'loss'}">
+      R$ ${f(t.result)}
+    </div>
+
+    <div class="card-btns">
+      <button class="btn" onclick="deletar(${t.id})">Deletar</button>
+    </div>
+
+    <small>${formatDate(t.created_at)}</small>
+  </div>
+`;
+  }).join('');
+
+  document.getElementById('dia').innerText = f(dia);
+  document.getElementById('semana').innerText = f(semana);
+  document.getElementById('mes').innerText = f(mes);
+}
+
+async function deletar(id){
+  await fetch(API+'/'+id,{method:'DELETE'});
+  carregar();
+}
+
+function editar(t){
+  editId = t.id;
+  entry.value = f(t.entry);
+  exit.value = f(t.exit);
+  contracts.value = t.contracts;
+  description.value = t.description;
+  tag.value = t.tag;
+}
+
+carregar();
+</script>
+
+</body>
+</html>

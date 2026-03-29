@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "asset": "WDO",
+    "entry": 5.4567,
+    "exit": null,
+    "points": -5.4567,
+    "result": -54.56699999999999,
+    "description": "absorção",
+    "tag": "setup"
+  }
+]
