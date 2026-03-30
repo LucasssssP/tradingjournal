@@ -9,9 +9,6 @@ app.use(express.static('public'));
 
 const db = new sqlite3.Database('trades.db');
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('rodando...'));
-
 // tabela
  db.run(`
 CREATE TABLE IF NOT EXISTS trades (
@@ -73,4 +70,4 @@ app.put('/trades/:id', (req, res) => {
   );
 });
 
-
+app.listen(3000, () => console.log('http://localhost:3000'));
